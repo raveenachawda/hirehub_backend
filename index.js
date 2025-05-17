@@ -20,7 +20,10 @@ app.use(cookieParser());
 
 // CORS configuration
 const corsOptions = {
-  origin: ["https://hirehub-frontend-blond.vercel.app", ""],
+  origin: [
+    "https://hirehub-frontend-blond.vercel.app",
+    "http://localhost:3000",
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
