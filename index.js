@@ -35,7 +35,10 @@ app.use(cors(corsOptions));
 app.get("/test", (req, res) => {
   res.json({ message: "Server is running" });
 });
-
+app.get('/test-cookie', (req, res) => {
+  console.log('Cookies:', req.cookies);
+  res.json({ success: true, cookies: req.cookies });
+});
 const PORT = process.env.PORT || 8000;
 
 // API routes
