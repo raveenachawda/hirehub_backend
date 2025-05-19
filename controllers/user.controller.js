@@ -5,6 +5,9 @@ import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 import Otp from "../models/otp.model.js";
 import Profile from "../models/Profile.js";
+import { Job } from "../models/job.model.js";
+import { Application } from "../models/application.model.js";
+import { Company } from "../models/company.model.js";
 
 import { sendEmail } from "../utils/sendEmail.js";
 
@@ -179,7 +182,9 @@ export const updateProfile = async (req, res) => {
     let cloudResponse;
     if (file) {
       const fileUri = getDataUri(file);
-      cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+      cloudResponse = await cloudinary.uploader.upload(fileUri.content, {
+        resource_type: "raw"
+      });
     }
 
     // Update profile fields
@@ -687,6 +692,87 @@ export const resetPassword = async (req, res) => {
       message: "Failed to reset password",
       success: false,
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+export const getDashboardStats = async (req, res) => {
+  try {
+    // Get total recruiters count
+    const recruitersCount = await User.countDocuments({ role: "recruiter" });
+
+    // Get total students count
+    const studentsCount = await User.countDocuments({ role: "student" });
+
+    // Get total jobs count
+    const jobsCount = await Job.countDocuments();
+
+    // Get total applications count
+    const applicationsCount = await Application.countDocuments();
+
+    // Get active companies count
+    const activeCompaniesCount = await Company.countDocuments({
+      status: "active",
+    });
+
+    // Get pending approvals count (unverified users)
+    const pendingApprovalsCount = await User.countDocuments({
+      isVerified: false,
+    });
+
+    // Get recent jobs (last 5)
+    const recentJobs = await Job.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("company", "name")
+      .select("title company applicants createdAt");
+
+    // Get recent applications (last 5)
+    const recentApplications = await Application.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate({
+        path: "job",
+        select: "title company",
+        populate: {
+          path: "company",
+          select: "name",
+        },
+      })
+      .populate("applicant", "fullname email")
+      .select("status createdAt");
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        recruiters: recruitersCount,
+        students: studentsCount,
+        jobs: jobsCount,
+        applications: applicationsCount,
+        activeCompanies: activeCompaniesCount,
+        pendingApprovals: pendingApprovalsCount,
+      },
+      recentJobs: recentJobs.map((job) => ({
+        id: job._id,
+        title: job.title,
+        company: job.company?.name || "Unknown",
+        type: job.jobType,
+        applicants: job.applications?.length || 0,
+        postedDate: job.createdAt,
+      })),
+      recentApplications: recentApplications.map((app) => ({
+        id: app._id,
+        candidate: app.applicant?.fullname || "Unknown",
+        job: app.job?.title || "Unknown",
+        status: app.status,
+        date: app.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Error in getDashboardStats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching dashboard statistics",
+      error: error.message,
     });
   }
 };

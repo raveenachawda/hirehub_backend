@@ -84,20 +84,54 @@ export const getApplicants = async (req, res) => {
       options: { sort: { createdAt: -1 } },
       populate: {
         path: "applicant",
+        select: "fullname email phoneNumber profile",
+        populate: {
+          path: "profile",
+          select: "bio skills resume resumeOriginalName profilePhoto",
+        },
       },
     });
+
     if (!job) {
       return res.status(404).json({
         message: "Job not found.",
         success: false,
       });
     }
+
+    // Transform the data to include all relevant user details
+    const formattedApplications = job.applications.map((application) => ({
+      _id: application._id,
+      status: application.status || "pending",
+      createdAt: application.createdAt,
+      applicant: {
+        _id: application.applicant._id,
+        fullname: application.applicant.fullname,
+        email: application.applicant.email,
+        phoneNumber: application.applicant.phoneNumber,
+        profile: {
+          bio: application.applicant.profile?.bio,
+          skills: application.applicant.profile?.skills,
+          resume: application.applicant.profile?.resume,
+          resumeOriginalName: application.applicant.profile?.resumeOriginalName,
+          profilePhoto: application.applicant.profile?.profilePhoto,
+        },
+      },
+    }));
+
     return res.status(200).json({
-      job,
-      succees: true,
+      success: true,
+      jobTitle: job.title,
+      companyName: job.company.name,
+      applications: formattedApplications,
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error in getApplicants:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching applicants",
+      error: error.message,
+    });
   }
 };
 export const updateStatus = async (req, res) => {

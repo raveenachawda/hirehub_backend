@@ -1,4 +1,5 @@
 import { Job } from "../models/job.model.js";
+import User from "../models/User.js";
 
 // admin post krega job
 export const postJob = async (req, res) => {
@@ -210,6 +211,52 @@ export const deleteJob = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       message: "Error deleting job",
+      success: false,
+    });
+  }
+};
+
+export const getCompanyJobs = async (req, res) => {
+  try {
+    const userId = req.id;
+    const companyId = req.params.companyId;
+
+    // First verify if the user has joined this company
+    const user = await User.findById(userId).populate("company");
+    if (!user || !user.company || user.company._id.toString() !== companyId) {
+      return res.status(403).json({
+        message: "You are not authorized to view these jobs",
+        success: false,
+      });
+    }
+
+    // Get all jobs for the company
+    const jobs = await Job.find({ company: companyId })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "applications",
+        populate: {
+          path: "applicant",
+          select: "fullname email profile",
+        },
+      })
+      .populate("created_by", "fullname email");
+
+    if (!jobs || jobs.length === 0) {
+      return res.status(404).json({
+        message: "No jobs found for this company",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      jobs,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error in getCompanyJobs:", error);
+    return res.status(500).json({
+      message: "Error fetching company jobs",
       success: false,
     });
   }

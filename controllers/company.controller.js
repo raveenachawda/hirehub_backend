@@ -117,11 +117,16 @@ export const updateCompany = async (req, res) => {
 
 export const joinCompany = async (req, res) => {
   try {
-    const { companyId } = req.params;
+    const { id } = req.params;
     const userId = req.id;
 
+    console.log("Attempting to join company with ID:", id);
+    console.log("User ID:", userId);
+
     // Check if company exists
-    const company = await Company.findById(companyId);
+    const company = await Company.findById(id);
+    console.log("Found company:", company);
+
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -175,7 +180,7 @@ export const joinCompany = async (req, res) => {
     await company.save();
 
     // Add company to user's joinedCompanies
-    user.joinedCompanies = [companyId]; // Only allow one company
+    user.joinedCompanies = [id]; // Only allow one company
     await user.save();
 
     res.status(200).json({
@@ -226,11 +231,11 @@ export const getJoinedCompanies = async (req, res) => {
 
 export const getCompanyDetails = async (req, res) => {
   try {
-    const { companyId } = req.params;
+    const { id } = req.params;
     const userId = req.id;
 
     // Get company details
-    const company = await Company.findById(companyId).populate(
+    const company = await Company.findById(id).populate(
       "recruiters",
       "fullname email"
     );
@@ -293,10 +298,10 @@ export const getAllCompanies = async (req, res) => {
 
 export const deleteCompany = async (req, res) => {
   try {
-    const { companyId } = req.params;
+    const { id } = req.params;
 
     // Check if company exists
-    const company = await Company.findById(companyId);
+    const company = await Company.findById(id);
     if (!company) {
       return res.status(404).json({
         success: false,
@@ -305,12 +310,12 @@ export const deleteCompany = async (req, res) => {
     }
 
     // Delete the company
-    await Company.findByIdAndDelete(companyId);
+    await Company.findByIdAndDelete(id);
 
     // Remove company from all users' joinedCompanies array
     await User.updateMany(
-      { joinedCompanies: companyId },
-      { $pull: { joinedCompanies: companyId } }
+      { joinedCompanies: id },
+      { $pull: { joinedCompanies: id } }
     );
 
     return res.status(200).json({
@@ -323,6 +328,63 @@ export const deleteCompany = async (req, res) => {
       success: false,
       message: "Error deleting company",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const leaveCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.id;
+
+    // Check if company exists
+    const company = await Company.findById(id);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user is part of this company
+    if (!company.recruiters || !company.recruiters.includes(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "You are not part of this company",
+      });
+    }
+
+    // Remove user from company's recruiters
+    company.recruiters = company.recruiters.filter(
+      (recruiterId) => recruiterId.toString() !== userId
+    );
+    await company.save();
+
+    // Remove company from user's joinedCompanies
+    user.joinedCompanies = user.joinedCompanies.filter(
+      (companyId) => companyId.toString() !== id
+    );
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully left the company",
+    });
+  } catch (error) {
+    console.error("Error in leaveCompany:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error leaving company",
+      error: error.message,
     });
   }
 };

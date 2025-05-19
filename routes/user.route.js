@@ -3,6 +3,7 @@ import {
   login,
   logout,
   register,
+  getDashboardStats,
   updateProfile,
   getAllStudents,
   getAllRecruiters,
@@ -37,7 +38,7 @@ router.route("/allstudents").get(isAuthenticated, getAllStudents);
 router.route("/send-otp").post(sendOtp);
 router.route("/verify-otp").post(verifyOtp);
 router.post("/resend-otp", resendOtp);
-
+router.get("/dashboard-stats", getDashboardStats);
 router.get("/allrecruiters", isAuthenticated, getAllRecruiters);
 
 router.put("/block/:studentId", isAuthenticated, blockStudent);
